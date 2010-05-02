@@ -154,7 +154,7 @@ function _getRequiredNutrients(){
 
 
 
-function isUserConfigurationOK(){
+function userIsTrackingRequiredNutrients(){
 	var requiredNutrients = _getRequiredNutrients();
 	var trackedNutrients = _getNutrientsTracked();
 	for (var i = 0; i < requiredNutrients.length; i++){
@@ -260,10 +260,35 @@ function generatePointData(){
 	}
 }
 
-if (isUserConfigurationOK()){
+function showRequiredNutrientError(){
+	var labelRow = _getLabelRow();
+
+	var newRow = document.createElement("tr");
+	var newCell = document.createElement("td");
+	newCell.style.color = '#E45B00';
+	newCell.style.fontSize = '11px';
+	newCell.style.fontWeight = 'bold';
+	newCell.setAttribute('colspan', 99);
+	
+	var errMsg = "Notice! You must track the following nutrients to display WW points: ";
+	var requiredNutrients = _getRequiredNutrients();
+	for (var i = 0; i < requiredNutrients.length; i++){
+		if (i != 0){
+			errMsg = errMsg + ", ";
+		}
+		errMsg = errMsg + requiredNutrients[i];
+	}
+	
+	newCellText = document.createTextNode(errMsg);
+	newCell.appendChild(newCellText);
+	newRow.appendChild(newCell);
+	labelRow.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(newRow);	
+}
+
+if (userIsTrackingRequiredNutrients()){
 	setup();
 	generatePointData()
 } else {
-	alert('You are not currently tracking the necessary nutrients.')
+	showRequiredNutrientError();
 }
 
