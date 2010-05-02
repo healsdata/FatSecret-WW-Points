@@ -4,7 +4,7 @@
 // @description   Adds the WW points to the FatSecret food diary.
 // @copyright     2010 Jonathan Campbell (http://www.healsdata.com/)
 // @license       MIT License http://www.opensource.org/licenses/mit-license.php
-// @version       0.0.1
+// @version       0.1
 // @include       http://www.fatsecret.com/Diary.aspx?pa=fj
 // @include       http://www.fatsecret.com/Diary.aspx?pa=fj&*
 // ==/UserScript==
@@ -18,7 +18,7 @@
  * @param string strClassName
  * @return array
  */
-function getElementsByClassName(oElm, strTagName, strClassName){
+function _getElementsByClassName(oElm, strTagName, strClassName){
 	var arrElements = (strTagName == "*" && document.all)? document.all : oElm.getElementsByTagName(strTagName);
 	var arrReturnElements = new Array();
 	strClassName = strClassName.replace(/\-/g, "\\-");
@@ -42,7 +42,7 @@ function getElementsByClassName(oElm, strTagName, strClassName){
  * @param float numGramsFiber
  * @return integer
  */
-function getWWPoints(numCalories, numGramsFat, numGramsFiber){
+function _calcWWPoints(numCalories, numGramsFat, numGramsFiber){
 	if (numGramsFiber > 4){
 		numGramsFiber = 4;
 	}
@@ -60,25 +60,50 @@ function _inArray(haystack, needle){
 	return (haystack.indexOf(needle) != -1);
 }
 
-
+/**
+ * Returns the row from the top of the journal that labels the nutrient columns.
+ * 
+ * @return object
+ */
 function _getLabelRow(){
-	var breakoutDivs = getElementsByClassName(document, 'div', 'breakout');
-	var tables = getElementsByClassName(breakoutDivs[0], 'table', 'generic');
+	var breakoutDivs = _getElementsByClassName(document, 'div', 'breakout');
+	var tables = _getElementsByClassName(breakoutDivs[0], 'table', 'generic');
 	var targetTable = tables[0].getElementsByTagName("table").item(0);
 	var tableRows = targetTable.getElementsByTagName("tr");	
 	return tableRows[0];
 }
 
+/**
+ * Returns the row at the top of the journal that contains the daily totals.
+ * 
+ * @return object
+ */
 function _getTotalsRow(){
-	var breakoutDivs = getElementsByClassName(document, 'div', 'breakout');
-	var tables = getElementsByClassName(breakoutDivs[0], 'table', 'generic');
+	var breakoutDivs = _getElementsByClassName(document, 'div', 'breakout');
+	var tables = _getElementsByClassName(breakoutDivs[0], 'table', 'generic');
 	var targetTable = tables[0].getElementsByTagName("table").item(0);
 	var tableRows = targetTable.getElementsByTagName("tr");	
 	return tableRows[1];	
 }
 
+/**
+ * A list of the titles of valid meal sections.
+ * 
+ * This currently eliminates "Day Summary:" which is structured like a section.
+ * 
+ * @return array
+ */
+function _getValidMealSections(){
+	return ['Breakfast', 'Lunch', 'Dinner', 'Snacks / Other'];
+}
+
+/**
+ * Returns all the meal sections on the current page.
+ * 
+ * @return array
+ */
 function _getMealSections(){
-	var sectionHeaders = getElementsByClassName(document, 'td', 'greytitlex');
+	var sectionHeaders = _getElementsByClassName(document, 'td', 'greytitlex');
 	var sections = new Array();
 	for (var i = 0; i < sectionHeaders.length; i++){
 		var currentSection = sectionHeaders[i];
@@ -101,11 +126,169 @@ function _getMealSections(){
 	return sections;
 }
 
-function _getValidMealSections(){
-	return ['Breakfast', 'Lunch', 'Dinner', 'Snacks / Other'];
+/**
+ * Displays the total WW points for the day.
+ * 
+ * @return void
+ */
+function _generatePointTotal(){
+	var totalsArr = new Array();
+	var nutrientsTracked = _getNutrientsTracked();
+	var targetCells = _getTotalsRow().getElementsByTagName("td");
+	for (var i = 0; i < targetCells.length; i++){
+		var nutrient = nutrientsTracked[i];
+		var totalText = targetCells[i].innerHTML;
+		
+		if (totalText == '-'){
+			totalText = '0';
+		}
+				
+		totalsArr[nutrient] = totalText;
+	}		
+
+	var totalWWPoints = _calcWWPoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber']);
+	if (totalWWPoints == 0){
+		totalWWPoints = '-';
+	}
+		
+	document.getElementById('ww_total').innerHTML = totalWWPoints;
 }
 
-function setup(){
+/**
+ * Returns whether a given section item contains nutrient information.
+ * 
+ * Although fragile, currently nutrient section items contain one row
+ * while other section items contain multiple
+ * 
+ * @param object sectionItem
+ * @return boolean
+ */
+function _isSectionItemWithNutrients(sectionItem){
+	var theTRs = sectionItem.getElementsByTagName('tr');
+	return theTRs.length == 1;
+}
+
+/**
+ * Adds the WW points to a row that contains nutrient information.
+ * 
+ * @param object nutrientRow
+ * @return void
+ */
+function _generatePointsForRow(nutrientRow){
+	var newCellClass = 'greyback';
+	var targetCells = _getElementsByClassName(nutrientRow, 'td', newCellClass);	
+	if (targetCells.length == 0){
+		newCellClass = 'greyback2';
+		targetCells = _getElementsByClassName(nutrientRow, 'td', newCellClass)
+	}
+	
+	var beforeMe = targetCells[0];
+	
+	var newCell = document.createElement("td");
+	newCell.className = newCellClass;
+	
+	var uniqueId = "ww_row_" + Math.floor(Math.random()*101) + "_" + Math.floor(Math.random()*101);
+	newCell.id = uniqueId;
+
+	newCellText = document.createTextNode(totalWWPoints);
+	newCell.appendChild(newCellText);
+	
+	beforeMe.parentNode.insertBefore(newCell, beforeMe);		
+	
+	var totalsArr = new Array();
+	targetCells = _getElementsByClassName(nutrientRow, 'td', newCellClass)
+	var nutrientsTracked = _getNutrientsTracked();
+	for (var i = 0; i < targetCells.length; i++){
+		var nutrient = nutrientsTracked[i];
+		var totalText = targetCells[i].innerHTML;
+		
+		if (totalText == '-'){
+			totalText = '0';
+		}
+				
+		totalsArr[nutrient] = totalText;
+	}		
+		
+	var totalWWPoints = _calcWWPoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber']);
+	if (totalWWPoints == 0){
+		totalWWPoints = '-';
+	}	
+	
+	document.getElementById(uniqueId).innerHTML = totalWWPoints;	
+}
+
+/**
+ * Adds the WW points to one of the four meal sections.
+ * 
+ * @param object mealSection
+ * @return void 
+ */
+function _generatePointsForSection(mealSection){
+	var innerTables = _getElementsByClassName(mealSection, 'table', 'generic');
+	for (var i = 0; i < innerTables.length; i++){
+		var theRow = innerTables[i];
+		if (_isSectionItemWithNutrients(theRow)){
+			_generatePointsForRow(theRow);
+		}
+	}
+}
+
+/**
+ * Returns a list of the required nutrients.
+ * 
+ * @return array
+ */
+function _getRequiredNutrients(){
+	return ['Fat', 'Fiber', 'KCals'];
+}
+
+/**
+ * Returns a list of the nutrients the user is currently tracking.
+ * 
+ * @return array
+ */
+function _getNutrientsTracked(){
+	var nutrientsTracked = new Array()
+	var targetCells = _getLabelRow().getElementsByTagName("td");
+	for (var i = 0; i < targetCells.length; i++){
+		var labelText = targetCells[i].innerHTML;
+		
+		if (labelText.indexOf("<") >= 0){
+			var nutrient = labelText.substring(0, labelText.indexOf("<"));
+		} else {
+			var nutrient = labelText;
+		}
+		
+		nutrientsTracked.push(nutrient);
+	}	
+	
+	return nutrientsTracked;
+}
+
+/**
+ * Returns whether the user is tracking all the required nutrients.
+ * 
+ * We can only calculate WW points if they are.
+ * 
+ * @return boolean
+ */
+function userIsTrackingRequiredNutrients(){
+	var requiredNutrients = _getRequiredNutrients();
+	var trackedNutrients = _getNutrientsTracked();
+	for (var i = 0; i < requiredNutrients.length; i++){
+		if (!_inArray(trackedNutrients, requiredNutrients[i])){
+			return false;
+		}
+	}
+	return true;
+}
+
+/**
+ * The main runtime -- puts point data on the food diary.
+ * 
+ * @return void
+ */
+function generatePointData(){
 	var labelCell = document.createElement("td");
 	labelCell.className = 'grey';
 	labelCell.style.fontSize = '10px';
@@ -127,131 +310,8 @@ function setup(){
 	totalCell.appendChild(totalCellText);
 	
 	var totalRow = _getTotalsRow();
-	totalRow.insertBefore(totalCell, totalRow.firstChild);
-}
-
-function _getNutrientsTracked(){
-	var nutrientsTracked = new Array()
-	var targetCells = _getLabelRow().getElementsByTagName("td");
-	for (var i = 0; i < targetCells.length; i++){
-		var labelText = targetCells[i].innerHTML;
-		
-		if (labelText.indexOf("<") >= 0){
-			var nutrient = labelText.substring(0, labelText.indexOf("<"));
-		} else {
-			var nutrient = labelText;
-		}
-		
-		nutrientsTracked.push(nutrient);
-	}	
+	totalRow.insertBefore(totalCell, totalRow.firstChild);	
 	
-	return nutrientsTracked;
-}
-
-function _getRequiredNutrients(){
-	return ['Fat', 'Fiber', 'KCals'];
-}
-
-
-
-function userIsTrackingRequiredNutrients(){
-	var requiredNutrients = _getRequiredNutrients();
-	var trackedNutrients = _getNutrientsTracked();
-	for (var i = 0; i < requiredNutrients.length; i++){
-		if (!_inArray(trackedNutrients, requiredNutrients[i])){
-			return false;
-		}
-	}
-	return true;
-}
-
-function _getTotals(){
-	var totals = new Array();
-	var nutrientsTracked = _getNutrientsTracked();
-	var targetCells = _getTotalsRow().getElementsByTagName("td");
-	for (var i = 0; i < targetCells.length; i++){
-		var nutrient = nutrientsTracked[i];
-		var totalText = targetCells[i].innerHTML;
-		
-		if (totalText == '-'){
-			totalText = '0';
-		}
-				
-		totals[nutrient] = totalText;
-	}		
-	
-	return totals;
-}
-
-function _generatePointTotal(){
-	var totalsArr = _getTotals();
-	var totalWWPoints = getWWPoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber']);
-	if (totalWWPoints == 0){
-		totalWWPoints = '-';
-	}
-		
-	document.getElementById('ww_total').innerHTML = totalWWPoints;
-}
-
-function _isRowWithNutrients(row){
-	var theTRs = row.getElementsByTagName('tr');
-	return theTRs.length == 1;
-}
-
-function _generatePointsForRow(nutrientRow){
-	var newCellClass = 'greyback';
-	var targetCells = getElementsByClassName(nutrientRow, 'td', newCellClass);	
-	if (targetCells.length == 0){
-		newCellClass = 'greyback2';
-		targetCells = getElementsByClassName(nutrientRow, 'td', newCellClass)
-	}
-	
-	var beforeMe = targetCells[0];
-	
-	var newCell = document.createElement("td");
-	newCell.className = newCellClass;
-	
-	var uniqueId = "ww_row_" + Math.floor(Math.random()*101) + "_" + Math.floor(Math.random()*101);
-	newCell.id = uniqueId;
-
-	newCellText = document.createTextNode(totalWWPoints);
-	newCell.appendChild(newCellText);
-	
-	beforeMe.parentNode.insertBefore(newCell, beforeMe);		
-	
-	var totalsArr = new Array();
-	targetCells = getElementsByClassName(nutrientRow, 'td', newCellClass)
-	var nutrientsTracked = _getNutrientsTracked();
-	for (var i = 0; i < targetCells.length; i++){
-		var nutrient = nutrientsTracked[i];
-		var totalText = targetCells[i].innerHTML;
-		
-		if (totalText == '-'){
-			totalText = '0';
-		}
-				
-		totalsArr[nutrient] = totalText;
-	}		
-		
-	var totalWWPoints = getWWPoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber']);
-	if (totalWWPoints == 0){
-		totalWWPoints = '-';
-	}	
-	
-	document.getElementById(uniqueId).innerHTML = totalWWPoints;	
-}
-
-function _generatePointsForSection(mealSection){
-	var innerTables = getElementsByClassName(mealSection, 'table', 'generic');
-	for (var i = 0; i < innerTables.length; i++){
-		var theRow = innerTables[i];
-		if (_isRowWithNutrients(theRow)){
-			_generatePointsForRow(theRow);
-		}
-	}
-}
-
-function generatePointData(){
 	_generatePointTotal();
 	
 	var mealSections = _getMealSections();
@@ -260,6 +320,11 @@ function generatePointData(){
 	}
 }
 
+/**
+ * Displays an error when the user isn't tracking the needed nutrients.
+ * 
+ * @return void
+ */
 function showRequiredNutrientError(){
 	var labelRow = _getLabelRow();
 
@@ -286,7 +351,6 @@ function showRequiredNutrientError(){
 }
 
 if (userIsTrackingRequiredNutrients()){
-	setup();
 	generatePointData()
 } else {
 	showRequiredNutrientError();
