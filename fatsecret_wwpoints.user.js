@@ -13,7 +13,7 @@
  * Find all the elements inside the given element with a given class name.
  * 
  * @link http://codesnippets.joyent.com/posts/show/686
- * @param XPCNativeWrapper oElm
+ * @param Element oElm
  * @param string strTagName
  * @param string strClassName
  * @return array
@@ -49,6 +49,18 @@ function getWWPoints(numCalories, numGramsFat, numGramsFiber){
 	return Math.round((numCalories / 50) + (numGramsFat / 12) - (numGramsFiber / 5));
 }
 
+/**
+ * Returns whether a given something is contained within an array.
+ * 
+ * @param array haystack
+ * @param mixed needle
+ * @return boolean
+ */
+function _inArray(haystack, needle){
+	return (haystack.indexOf(needle) != -1);
+}
+
+
 function _getLabelRow(){
 	var breakoutDivs = getElementsByClassName(document, 'div', 'breakout');
 	var tables = getElementsByClassName(breakoutDivs[0], 'table', 'generic');
@@ -63,6 +75,34 @@ function _getTotalsRow(){
 	var targetTable = tables[0].getElementsByTagName("table").item(0);
 	var tableRows = targetTable.getElementsByTagName("tr");	
 	return tableRows[1];	
+}
+
+function _getMealSections(){
+	var sectionHeaders = getElementsByClassName(document, 'td', 'greytitlex');
+	var sections = new Array();
+	for (var i = 0; i < sectionHeaders.length; i++){
+		var currentSection = sectionHeaders[i];
+		
+		if (!_inArray(_getValidMealSections(), currentSection.innerHTML)){
+			continue;
+		}
+		
+		var tableParent = currentSection;
+		var numTablesFound = 0;
+		while (tableParent.nodeName != 'TABLE' || !numTablesFound){
+			if (tableParent.nodeName == 'TABLE'){
+				numTablesFound++;
+			}
+			tableParent = tableParent.parentNode;			
+		}
+		
+		sections.push(tableParent);
+	}
+	return sections;
+}
+
+function _getValidMealSections(){
+	return ['Breakfast', 'Lunch', 'Dinner', 'Snacks / Other'];
 }
 
 function setup(){
@@ -88,7 +128,6 @@ function setup(){
 	
 	var totalRow = _getTotalsRow();
 	totalRow.insertBefore(totalCell, totalRow.firstChild);
-	
 }
 
 function _getNutrientsTracked(){
@@ -113,9 +152,6 @@ function _getRequiredNutrients(){
 	return ['Fat', 'Fiber', 'KCals'];
 }
 
-function _inArray(arr,obj) {
-    return (arr.indexOf(obj) != -1);
-}
 
 
 function isUserConfigurationOK(){
@@ -157,10 +193,72 @@ function _generatePointTotal(){
 	document.getElementById('ww_total').innerHTML = totalWWPoints;
 }
 
-function generatePointData(){
-	_generatePointTotal();
+function _isRowWithNutrients(row){
+	var theTRs = row.getElementsByTagName('tr');
+	return theTRs.length == 1;
 }
 
+function _generatePointsForRow(nutrientRow){
+	var newCellClass = 'greyback';
+	var targetCells = getElementsByClassName(nutrientRow, 'td', newCellClass);	
+	if (targetCells.length == 0){
+		newCellClass = 'greyback2';
+		targetCells = getElementsByClassName(nutrientRow, 'td', newCellClass)
+	}
+	
+	var beforeMe = targetCells[0];
+	
+	var newCell = document.createElement("td");
+	newCell.className = newCellClass;
+	
+	var uniqueId = "ww_row_" + Math.floor(Math.random()*101) + "_" + Math.floor(Math.random()*101);
+	newCell.id = uniqueId;
+
+	newCellText = document.createTextNode(totalWWPoints);
+	newCell.appendChild(newCellText);
+	
+	beforeMe.parentNode.insertBefore(newCell, beforeMe);		
+	
+	var totalsArr = new Array();
+	targetCells = getElementsByClassName(nutrientRow, 'td', newCellClass)
+	var nutrientsTracked = _getNutrientsTracked();
+	for (var i = 0; i < targetCells.length; i++){
+		var nutrient = nutrientsTracked[i];
+		var totalText = targetCells[i].innerHTML;
+		
+		if (totalText == '-'){
+			totalText = '0';
+		}
+				
+		totalsArr[nutrient] = totalText;
+	}		
+		
+	var totalWWPoints = getWWPoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber']);
+	if (totalWWPoints == 0){
+		totalWWPoints = '-';
+	}	
+	
+	document.getElementById(uniqueId).innerHTML = totalWWPoints;	
+}
+
+function _generatePointsForSection(mealSection){
+	var innerTables = getElementsByClassName(mealSection, 'table', 'generic');
+	for (var i = 0; i < innerTables.length; i++){
+		var theRow = innerTables[i];
+		if (_isRowWithNutrients(theRow)){
+			_generatePointsForRow(theRow);
+		}
+	}
+}
+
+function generatePointData(){
+	_generatePointTotal();
+	
+	var mealSections = _getMealSections();
+	for (var i = 0; i < mealSections.length; i++){
+		_generatePointsForSection(mealSections[i]);
+	}
+}
 
 if (isUserConfigurationOK()){
 	setup();
