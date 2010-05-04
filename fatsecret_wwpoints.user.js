@@ -13,24 +13,23 @@
  * Find all the elements inside the given element with a given class name.
  * 
  * @link http://codesnippets.joyent.com/posts/show/686
- * @param Element oElm
+ * @param Element parentElement
  * @param string strTagName
  * @param string strClassName
  * @return array
  */
-function _getElementsByClassName(oElm, strTagName, strClassName){
-	var arrElements = (strTagName == "*" && document.all)? document.all : oElm.getElementsByTagName(strTagName);
+function _getElementsByClassName(parentElement, strTagName, strClassName){
 	var arrReturnElements = new Array();
-	strClassName = strClassName.replace(/\-/g, "\\-");
-	var oRegExp = new RegExp("(^|\\s)" + strClassName + "(\\s|$)");
-	var oElement;
-	for(var i=0; i<arrElements.length; i++){
-		oElement = arrElements[i];
-		if(oRegExp.test(oElement.getAttribute("class"))){
-			arrReturnElements.push(oElement);
+	var arrElements = parentElement.getElementsByTagName(strTagName);
+	
+	for(var i = 0; i < arrElements.length; i++){
+		var possibleElement = arrElements[i];
+		if (possibleElement.className == strClassName){
+			arrReturnElements.push(possibleElement);
 		}
 	}
-	return (arrReturnElements)
+	
+	return arrReturnElements
 }
 
 /**
@@ -127,31 +126,16 @@ function _getMealSections(){
 }
 
 /**
- * Displays the total WW points for the day.
+ * Converts a number of points to a user friendly display version.
  * 
- * @return void
+ * @param numPoints
+ * @return string
  */
-function _generatePointTotal(){
-	var totalsArr = new Array();
-	var nutrientsTracked = _getNutrientsTracked();
-	var targetCells = _getTotalsRow().getElementsByTagName("td");
-	for (var i = 0; i < targetCells.length; i++){
-		var nutrient = nutrientsTracked[i];
-		var totalText = targetCells[i].innerHTML;
-		
-		if (totalText == '-'){
-			totalText = '0';
-		}
-				
-		totalsArr[nutrient] = totalText;
-	}		
-
-	var totalWWPoints = _calcWWPoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber']);
-	if (totalWWPoints == 0){
-		totalWWPoints = '-';
+function _getPointDisplay(numPoints){
+	if (numPoints == 0){
+		return '-';
 	}
-		
-	document.getElementById('ww_total').innerHTML = totalWWPoints;
+	return numPoints;
 }
 
 /**
@@ -168,20 +152,19 @@ function _isSectionItemWithNutrients(sectionItem){
 	return theTRs.length == 1;
 }
 
-/**
- * Adds the WW points to a row that contains nutrient information.
- * 
- * @param object nutrientRow
- * @return void
- */
-function _generatePointsForRow(nutrientRow){
+function _isSectionHeader(sectionItem){
+	var targetCells = _getElementsByClassName(sectionItem, 'td', 'greyback2');
+	return targetCells.length > 0;
+}
+
+function _addPointCellToSectionItem(sectionItem){
 	var newCellClass = 'greyback';
-	var targetCells = _getElementsByClassName(nutrientRow, 'td', newCellClass);	
-	if (targetCells.length == 0){
+	if (_isSectionHeader(sectionItem)){
 		newCellClass = 'greyback2';
-		targetCells = _getElementsByClassName(nutrientRow, 'td', newCellClass)
 	}
 	
+	var targetCells = _getElementsByClassName(sectionItem, 'td', newCellClass);	
+
 	var beforeMe = targetCells[0];
 	
 	var newCell = document.createElement("td");
@@ -190,13 +173,48 @@ function _generatePointsForRow(nutrientRow){
 	var uniqueId = "ww_row_" + Math.floor(Math.random()*101) + "_" + Math.floor(Math.random()*101);
 	newCell.id = uniqueId;
 
-	newCellText = document.createTextNode(totalWWPoints);
+	newCellText = document.createTextNode('-');
 	newCell.appendChild(newCellText);
 	
-	beforeMe.parentNode.insertBefore(newCell, beforeMe);		
+	beforeMe.parentNode.insertBefore(newCell, beforeMe);
 	
+	return uniqueId;
+}
+
+function _addPointCellToHeader(){
+	var labelCell = document.createElement("td");
+	labelCell.className = 'grey';
+	labelCell.style.fontSize = '10px';
+	
+	labelCellText = document.createTextNode('WW');
+	labelCell.appendChild(labelCellText);
+	
+	var labelRow = _getLabelRow();
+	labelRow.insertBefore(labelCell, labelRow.firstChild);
+	
+	var totalCell = document.createElement("td");
+	totalCell.className = 'grey';
+	totalCell.style.align = 'right';
+	totalCell.style.fontSize = '11px';
+	totalCell.style.fontWeight = 'bold';
+	totalCell.id = 'hd_point_total';
+	
+	totalCellText = document.createTextNode('-');
+	totalCell.appendChild(totalCellText);
+	
+	var totalRow = _getTotalsRow();
+	totalRow.insertBefore(totalCell, totalRow.firstChild);			
+}
+
+/**
+ * Adds the WW points to a row that contains nutrient information.
+ * 
+ * @param object nutrientRow
+ * @return void
+ */
+function _generatePointsForRow(nutrientRow){
 	var totalsArr = new Array();
-	targetCells = _getElementsByClassName(nutrientRow, 'td', newCellClass)
+	targetCells = _getElementsByClassName(nutrientRow, 'td', 'greyback');
 	var nutrientsTracked = _getNutrientsTracked();
 	for (var i = 0; i < targetCells.length; i++){
 		var nutrient = nutrientsTracked[i];
@@ -208,13 +226,11 @@ function _generatePointsForRow(nutrientRow){
 				
 		totalsArr[nutrient] = totalText;
 	}		
-		
-	var totalWWPoints = _calcWWPoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber']);
-	if (totalWWPoints == 0){
-		totalWWPoints = '-';
-	}	
-	
-	document.getElementById(uniqueId).innerHTML = totalWWPoints;	
+
+	var numItemPoints = _calcWWPoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber']);
+	var cellId = _addPointCellToSectionItem(nutrientRow);
+	showPointsInCell(numItemPoints, cellId);
+	return numItemPoints;	
 }
 
 /**
@@ -224,13 +240,22 @@ function _generatePointsForRow(nutrientRow){
  * @return void 
  */
 function _generatePointsForSection(mealSection){
+	var sectionPoints = 0;
 	var innerTables = _getElementsByClassName(mealSection, 'table', 'generic');
+	
 	for (var i = 0; i < innerTables.length; i++){
 		var theRow = innerTables[i];
 		if (_isSectionItemWithNutrients(theRow)){
-			_generatePointsForRow(theRow);
+			if (_isSectionHeader(theRow)){
+				var sectionHeaderId = _addPointCellToSectionItem(theRow);
+			} else {
+				sectionPoints += _generatePointsForRow(theRow);
+			}
 		}
 	}
+	
+	showPointsInCell(sectionPoints, sectionHeaderId);
+	return sectionPoints;
 }
 
 /**
@@ -289,35 +314,29 @@ function userIsTrackingRequiredNutrients(){
  * @return void
  */
 function generatePointData(){
-	var labelCell = document.createElement("td");
-	labelCell.className = 'grey';
-	labelCell.style.fontSize = '10px';
-	
-	labelCellText = document.createTextNode('WW');
-	labelCell.appendChild(labelCellText);
-	
-	var labelRow = _getLabelRow();
-	labelRow.insertBefore(labelCell, labelRow.firstChild);
-	
-	var totalCell = document.createElement("td");
-	totalCell.className = 'grey';
-	totalCell.style.align = 'right';
-	totalCell.style.fontSize = '11px';
-	totalCell.style.fontWeight = 'bold';
-	totalCell.id = 'ww_total';
-	
-	totalCellText = document.createTextNode('-');
-	totalCell.appendChild(totalCellText);
-	
-	var totalRow = _getTotalsRow();
-	totalRow.insertBefore(totalCell, totalRow.firstChild);	
-	
-	_generatePointTotal();
+	var totalPoints = 0;
 	
 	var mealSections = _getMealSections();
 	for (var i = 0; i < mealSections.length; i++){
-		_generatePointsForSection(mealSections[i]);
+		totalPoints += _generatePointsForSection(mealSections[i]);
 	}
+	
+	// Must come after all the calculations.
+	// We're using the label row as the only index for which column is which.
+	// @todo Clean this up so the order doesn't matter once work starts.
+	_addPointCellToHeader();
+	
+	return totalPoints;
+}
+
+/**
+ * Fills in the point total for the whole day
+ * 
+ * @param integer 
+ * @return void
+ */
+function showPointsInCell(numPoints, cellId){
+	document.getElementById(cellId).innerHTML = _getPointDisplay(numPoints);
 }
 
 /**
@@ -351,7 +370,7 @@ function showRequiredNutrientError(){
 }
 
 if (userIsTrackingRequiredNutrients()){
-	generatePointData()
+	showPointsInCell(generatePointData(), 'hd_point_total');
 } else {
 	showRequiredNutrientError();
 }
