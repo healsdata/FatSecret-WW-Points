@@ -4,7 +4,7 @@
 // @description   Adds the WW points to the FatSecret food diary.
 // @copyright     2010 Jonathan Campbell (http://www.healsdata.com/)
 // @license       MIT License http://www.opensource.org/licenses/mit-license.php
-// @version       0.1
+// @version       0.2
 // @include       http://www.fatsecret.com/Diary.aspx?pa=fj
 // @include       http://www.fatsecret.com/Diary.aspx?pa=fj&*
 // ==/UserScript==
@@ -13,7 +13,7 @@
  * Find all the elements inside the given element with a given class name.
  * 
  * @link http://codesnippets.joyent.com/posts/show/686
- * @param Element parentElement
+ * @param object parentElement
  * @param string strTagName
  * @param string strClassName
  * @return array
@@ -152,11 +152,23 @@ function _isSectionItemWithNutrients(sectionItem){
 	return theTRs.length == 1;
 }
 
+/**
+ * Returns whether a given section item is the header.
+ * 
+ * @param object sectionItem
+ * @return boolean
+ */
 function _isSectionHeader(sectionItem){
 	var targetCells = _getElementsByClassName(sectionItem, 'td', 'greyback2');
 	return targetCells.length > 0;
 }
 
+/**
+ * Adds a cell to a section item where we should display points.
+ * 
+ * @param object sectionItem
+ * @return string uniqueId - The ID of the new cell
+ */
 function _addPointCellToSectionItem(sectionItem){
 	var newCellClass = 'greyback';
 	if (_isSectionHeader(sectionItem)){
@@ -170,7 +182,8 @@ function _addPointCellToSectionItem(sectionItem){
 	var newCell = document.createElement("td");
 	newCell.className = newCellClass;
 	
-	var uniqueId = "ww_row_" + Math.floor(Math.random()*101) + "_" + Math.floor(Math.random()*101);
+	// @todo Make this specific to the item instead of just random
+	var uniqueId = "hd_sectionitem_" + Math.floor(Math.random()*10001) + "_" + Math.floor(Math.random()*10001);
 	newCell.id = uniqueId;
 
 	newCellText = document.createTextNode('-');
@@ -179,31 +192,6 @@ function _addPointCellToSectionItem(sectionItem){
 	beforeMe.parentNode.insertBefore(newCell, beforeMe);
 	
 	return uniqueId;
-}
-
-function _addPointCellToHeader(){
-	var labelCell = document.createElement("td");
-	labelCell.className = 'grey';
-	labelCell.style.fontSize = '10px';
-	
-	labelCellText = document.createTextNode('WW');
-	labelCell.appendChild(labelCellText);
-	
-	var labelRow = _getLabelRow();
-	labelRow.insertBefore(labelCell, labelRow.firstChild);
-	
-	var totalCell = document.createElement("td");
-	totalCell.className = 'grey';
-	totalCell.style.align = 'right';
-	totalCell.style.fontSize = '11px';
-	totalCell.style.fontWeight = 'bold';
-	totalCell.id = 'hd_point_total';
-	
-	totalCellText = document.createTextNode('-');
-	totalCell.appendChild(totalCellText);
-	
-	var totalRow = _getTotalsRow();
-	totalRow.insertBefore(totalCell, totalRow.firstChild);			
 }
 
 /**
@@ -320,12 +308,7 @@ function generatePointData(){
 	for (var i = 0; i < mealSections.length; i++){
 		totalPoints += _generatePointsForSection(mealSections[i]);
 	}
-	
-	// Must come after all the calculations.
-	// We're using the label row as the only index for which column is which.
-	// @todo Clean this up so the order doesn't matter once work starts.
-	_addPointCellToHeader();
-	
+		
 	return totalPoints;
 }
 
@@ -337,6 +320,38 @@ function generatePointData(){
  */
 function showPointsInCell(numPoints, cellId){
 	document.getElementById(cellId).innerHTML = _getPointDisplay(numPoints);
+}
+
+/**
+ * Adds the cell to the header where we should display the grand total.
+ * 
+ * @return void
+ */
+function addPointCellToHeader(){
+	var labelCell = document.createElement("td");
+	labelCell.className = 'grey';
+	labelCell.style.fontSize = '10px';
+	
+	labelCellText = document.createTextNode('WW');
+	labelCell.appendChild(labelCellText);
+	
+	var labelRow = _getLabelRow();
+	labelRow.insertBefore(labelCell, labelRow.firstChild);
+	
+	var totalCell = document.createElement("td");
+	totalCell.className = 'grey';
+	totalCell.style.align = 'right';
+	totalCell.style.fontSize = '11px';
+	totalCell.style.fontWeight = 'bold';
+	totalCell.id = 'hd_point_total';
+	
+	totalCellText = document.createTextNode('-');
+	totalCell.appendChild(totalCellText);
+	
+	var totalRow = _getTotalsRow();
+	totalRow.insertBefore(totalCell, totalRow.firstChild);	
+	
+	return totalCell.id;
 }
 
 /**
@@ -370,7 +385,12 @@ function showRequiredNutrientError(){
 }
 
 if (userIsTrackingRequiredNutrients()){
-	showPointsInCell(generatePointData(), 'hd_point_total');
+	var totalPoints = generatePointData();
+	// Must come after all the calculations.
+	// We're using the label row as the only index for which column is which.
+	// @todo Clean this up so the order doesn't matter once work starts.		
+	var totalCellId = addPointCellToHeader();
+	showPointsInCell(totalPoints, totalCellId);
 } else {
 	showRequiredNutrientError();
 }
