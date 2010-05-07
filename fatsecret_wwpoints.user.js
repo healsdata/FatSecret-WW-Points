@@ -4,7 +4,7 @@
 // @description   Adds the WW points to the FatSecret food diary.
 // @copyright     2010 Jonathan Campbell (http://www.healsdata.com/)
 // @license       MIT License http://www.opensource.org/licenses/mit-license.php
-// @version       0.2.1
+// @version       0.3
 // @include       http://www.fatsecret.com/Diary.aspx?pa=fj
 // @include       http://www.fatsecret.com/Diary.aspx?pa=fj&*
 // @include       http://fatsecret.com/Diary.aspx?pa=fj
@@ -143,15 +143,16 @@ function _getPointDisplay(numPoints){
 /**
  * Returns whether a given section item contains nutrient information.
  * 
- * Although fragile, currently nutrient section items contain one row
- * while other section items contain multiple
- * 
  * @param object sectionItem
  * @return boolean
  */
 function _isSectionItemWithNutrients(sectionItem){
-	var theTRs = sectionItem.getElementsByTagName('tr');
-	return theTRs.length == 1;
+	if (_isSectionHeader(sectionItem)){
+		return true;
+	}
+	
+	var targetCells = _getElementsByClassName(sectionItem, 'td', 'greyback');
+	return targetCells.length > 0;	
 }
 
 /**
