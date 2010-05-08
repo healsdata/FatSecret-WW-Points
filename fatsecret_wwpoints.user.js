@@ -5,34 +5,64 @@
 // @copyright     2010 Jonathan Campbell (http://www.healsdata.com/)
 // @license       MIT License http://www.opensource.org/licenses/mit-license.php
 // @version       0.3
-// @include       http://www.fatsecret.com/Diary.aspx?pa=fj
-// @include       http://www.fatsecret.com/Diary.aspx?pa=fj&*
-// @include       http://fatsecret.com/Diary.aspx?pa=fj
-// @include       http://fatsecret.com/Diary.aspx?pa=fj&*
+// @include       http://www.fatsecret.com/Diary.aspx?pa=fj*
+// @include       http://fatsecret.com/Diary.aspx?pa=fj*
 // ==/UserScript==
+
+/**
+ * Removes everything but numbers from a string.
+ * 
+ * @param string theString
+ * @return string
+ */
+function extractNumber(theString){
+	return theString.replace(/[^0-9.]/g, '');	
+}
+
+/**
+ * Returns the value of one variable in the query string
+ * 
+ * @link http://ilovethecode.com/Javascript/Javascript-Tutorials-How_To-Easy/Get_Query_String_Using_Javascript.shtml
+ * @param string variableName
+ * @return string
+ */
+function getQueryStringValue(variableName) {
+	var queryString = window.location.search.substring(1);
+	var keyValueString = queryString.split("&");
+	for (var i = 0; i < keyValueString.length; i++) {
+		var keyValue = keyValueString[i].split("=");
+		if (keyValue[0] == variableName) {
+			return keyValue[1];
+		}
+	}
+	
+	return '';
+}
 
 /**
  * Find all the elements inside the given element with a given class name.
  * 
  * @link http://codesnippets.joyent.com/posts/show/686
- * @param object parentElement
+ * @param object oElm
  * @param string strTagName
  * @param string strClassName
  * @return array
  */
-function _getElementsByClassName(parentElement, strTagName, strClassName){
+function getElementsByClassName(oElm, strTagName, strClassName){
+	var arrElements = (strTagName == "*" && document.all)? document.all : oElm.getElementsByTagName(strTagName);
 	var arrReturnElements = new Array();
-	var arrElements = parentElement.getElementsByTagName(strTagName);
-	
-	for(var i = 0; i < arrElements.length; i++){
-		var possibleElement = arrElements[i];
-		if (possibleElement.className == strClassName){
-			arrReturnElements.push(possibleElement);
-		}
+	strClassName = strClassName.replace(/\-/g, "\\-");
+	var oRegExp = new RegExp("(^|\\s)" + strClassName + "(\\s|$)");
+	var oElement;
+	for(var i=0; i<arrElements.length; i++){
+	    oElement = arrElements[i];
+	    if(oRegExp.test(oElement.className)){
+	        arrReturnElements.push(oElement);
+	    }
 	}
-	
-	return arrReturnElements
+	return (arrReturnElements)
 }
+
 
 /**
  * Returns the number of WW points for a food item given some nutrition facts.
@@ -43,7 +73,7 @@ function _getElementsByClassName(parentElement, strTagName, strClassName){
  * @param float numGramsFiber
  * @return integer
  */
-function _calcWWPoints(numCalories, numGramsFat, numGramsFiber){
+function calculatePoints(numCalories, numGramsFat, numGramsFiber){
 	if (numGramsFiber > 4){
 		numGramsFiber = 4;
 	}
@@ -57,7 +87,7 @@ function _calcWWPoints(numCalories, numGramsFat, numGramsFiber){
  * @param mixed needle
  * @return boolean
  */
-function _inArray(haystack, needle){
+function contains(haystack, needle){
 	return (haystack.indexOf(needle) != -1);
 }
 
@@ -67,8 +97,8 @@ function _inArray(haystack, needle){
  * @return object
  */
 function _getLabelRow(){
-	var breakoutDivs = _getElementsByClassName(document, 'div', 'breakout');
-	var tables = _getElementsByClassName(breakoutDivs[0], 'table', 'generic');
+	var breakoutDivs = getElementsByClassName(document, 'div', 'breakout');
+	var tables = getElementsByClassName(breakoutDivs[0], 'table', 'generic');
 	var targetTable = tables[0].getElementsByTagName("table").item(0);
 	var tableRows = targetTable.getElementsByTagName("tr");	
 	return tableRows[0];
@@ -80,8 +110,8 @@ function _getLabelRow(){
  * @return object
  */
 function _getTotalsRow(){
-	var breakoutDivs = _getElementsByClassName(document, 'div', 'breakout');
-	var tables = _getElementsByClassName(breakoutDivs[0], 'table', 'generic');
+	var breakoutDivs = getElementsByClassName(document, 'div', 'breakout');
+	var tables = getElementsByClassName(breakoutDivs[0], 'table', 'generic');
 	var targetTable = tables[0].getElementsByTagName("table").item(0);
 	var tableRows = targetTable.getElementsByTagName("tr");	
 	return tableRows[1];	
@@ -104,12 +134,12 @@ function _getValidMealSections(){
  * @return array
  */
 function _getMealSections(){
-	var sectionHeaders = _getElementsByClassName(document, 'td', 'greytitlex');
+	var sectionHeaders = getElementsByClassName(document, 'td', 'greytitlex');
 	var sections = new Array();
 	for (var i = 0; i < sectionHeaders.length; i++){
 		var currentSection = sectionHeaders[i];
 		
-		if (!_inArray(_getValidMealSections(), currentSection.innerHTML)){
+		if (!contains(_getValidMealSections(), currentSection.innerHTML)){
 			continue;
 		}
 		
@@ -151,7 +181,7 @@ function _isSectionItemWithNutrients(sectionItem){
 		return true;
 	}
 	
-	var targetCells = _getElementsByClassName(sectionItem, 'td', 'greyback');
+	var targetCells = getElementsByClassName(sectionItem, 'td', 'greyback');
 	return targetCells.length > 0;	
 }
 
@@ -162,7 +192,7 @@ function _isSectionItemWithNutrients(sectionItem){
  * @return boolean
  */
 function _isSectionHeader(sectionItem){
-	var targetCells = _getElementsByClassName(sectionItem, 'td', 'greyback2');
+	var targetCells = getElementsByClassName(sectionItem, 'td', 'greyback2');
 	return targetCells.length > 0;
 }
 
@@ -178,7 +208,7 @@ function _addPointCellToSectionItem(sectionItem){
 		newCellClass = 'greyback2';
 	}
 	
-	var targetCells = _getElementsByClassName(sectionItem, 'td', newCellClass);	
+	var targetCells = getElementsByClassName(sectionItem, 'td', newCellClass);	
 
 	var beforeMe = targetCells[0];
 	
@@ -205,7 +235,7 @@ function _addPointCellToSectionItem(sectionItem){
  */
 function _generatePointsForRow(nutrientRow){
 	var totalsArr = new Array();
-	targetCells = _getElementsByClassName(nutrientRow, 'td', 'greyback');
+	targetCells = getElementsByClassName(nutrientRow, 'td', 'greyback');
 	var nutrientsTracked = _getNutrientsTracked();
 	for (var i = 0; i < targetCells.length; i++){
 		var nutrient = nutrientsTracked[i];
@@ -218,7 +248,7 @@ function _generatePointsForRow(nutrientRow){
 		totalsArr[nutrient] = totalText;
 	}		
 
-	var numItemPoints = _calcWWPoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber']);
+	var numItemPoints = calculatePoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber']);
 	var cellId = _addPointCellToSectionItem(nutrientRow);
 	showPointsInCell(numItemPoints, cellId);
 	return numItemPoints;	
@@ -232,7 +262,7 @@ function _generatePointsForRow(nutrientRow){
  */
 function _generatePointsForSection(mealSection){
 	var sectionPoints = 0;
-	var innerTables = _getElementsByClassName(mealSection, 'table', 'generic');
+	var innerTables = getElementsByClassName(mealSection, 'table', 'generic');
 	
 	for (var i = 0; i < innerTables.length; i++){
 		var theRow = innerTables[i];
@@ -292,7 +322,7 @@ function userIsTrackingRequiredNutrients(){
 	var requiredNutrients = _getRequiredNutrients();
 	var trackedNutrients = _getNutrientsTracked();
 	for (var i = 0; i < requiredNutrients.length; i++){
-		if (!_inArray(trackedNutrients, requiredNutrients[i])){
+		if (!contains(trackedNutrients, requiredNutrients[i])){
 			return false;
 		}
 	}
@@ -387,14 +417,159 @@ function showRequiredNutrientError(){
 	labelRow.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(newRow);	
 }
 
-if (userIsTrackingRequiredNutrients()){
-	var totalPoints = generatePointData();
-	// Must come after all the calculations.
-	// We're using the label row as the only index for which column is which.
-	// @todo Clean this up so the order doesn't matter once work starts.		
-	var totalCellId = addPointCellToHeader();
-	showPointsInCell(totalPoints, totalCellId);
-} else {
-	showRequiredNutrientError();
+var CurrentPage = new function(){
+	this.isFoodDiary = function(){
+		return (location.pathname == '/Diary.aspx' 
+			&& getQueryStringValue('pa') == 'fj');	
+	}
+	
+	this.isNutritionFacts = function(){
+		var factPanels = getElementsByClassName(document, 'td', 'factPanel');
+		return factPanels.length == 1;
+	}
 }
 
+var FoodDiaryPage = new function(){
+	this.addPoints = function(){
+		if (userIsTrackingRequiredNutrients()){
+			var totalPoints = generatePointData();
+			// Must come after all the calculations.
+			// We're using the label row as the only index for which column is which.
+			// @todo Clean this up so the order doesn't matter once work starts.		
+			var totalCellId = addPointCellToHeader();
+			showPointsInCell(totalPoints, totalCellId);
+		} else {
+			showRequiredNutrientError();
+		}
+	}	
+}
+
+var NutritionFactsPage = new function(){
+	this.addPoints = function(){
+		var numPoints = this._getNutritionFacts().getPoints();
+		var pluralString = 's';
+		if (numPoints == 1){
+			pluralString = '';
+		}
+		
+		this._getDisplayTargetElement().innerHTML += " and " + numPoints
+										   		  + " point" + pluralString;
+	}
+	
+	this._getNutritionFacts = function(){
+		return getNutritionFactsFromPanel();
+	}
+	
+	this._getDisplayTargetElement = function(){
+		theDetails = getElementsByClassName(document, 'td', 'details');
+		theTables = getElementsByClassName(theDetails[0], 'table', 'generic');
+		theCells = theTables[1].getElementsByTagName('td');
+		theBolds = theCells[0].getElementsByTagName('b');
+		return theBolds[0];
+	}
+	
+}
+
+function getNutritionFactsFromPanel(){
+	var panel = getElementsByClassName(document, 'div', 'nutpanel');
+	
+	var facts = new NutritionFacts();
+	
+	if (panel == ''){
+		return facts;
+	}
+	
+	panel = panel[0];
+	
+	var theCells = getElementsByClassName(panel, 'td', 'borderTop');
+	for (var i = 0; i < theCells.length; i++){
+		var currentCell = theCells[i];		
+		
+		if (contains(currentCell.innerHTML, 'Calories')){
+			totalFatDivs = currentCell.getElementsByTagName('div');
+			facts.caloriesFat = extractNumber(totalFatDivs[0].innerHTML);
+			
+			facts.calories = extractNumber(
+				currentCell.innerHTML.substring(
+						currentCell.innerHTML.indexOf('</div>')
+				)
+			);
+		} else if (contains(currentCell.innerHTML, 'Total Fat')){
+			facts.totalFat = extractNumber(currentCell.innerHTML);
+		} else if (contains(currentCell.innerHTML, 'Saturated Fat')){
+			facts.saturatedFat = extractNumber(currentCell.innerHTML);
+		} else if (contains(currentCell.innerHTML, 'Polyunsaturated Fat')){
+			facts.polyunsaturatedFat = extractNumber(currentCell.innerHTML);
+		} else if (contains(currentCell.innerHTML, 'Monounsaturated Fat')){
+			facts.monounsaturatedFat = extractNumber(currentCell.innerHTML);
+		} else if (contains(currentCell.innerHTML, 'Cholesterol')){
+			facts.cholesterol = extractNumber(currentCell.innerHTML);
+		} else if (contains(currentCell.innerHTML, 'Sodium')){
+			facts.sodium = extractNumber(currentCell.innerHTML);
+		} else if (contains(currentCell.innerHTML, 'Potassium')){
+			facts.potassium = extractNumber(currentCell.innerHTML);
+		} else if (contains(currentCell.innerHTML, 'Total Carbohydrate')){
+			facts.totalCarbohydrate = extractNumber(currentCell.innerHTML);
+		} else if (contains(currentCell.innerHTML, 'Dietary Fiber')){
+			facts.dietaryFiber = extractNumber(currentCell.innerHTML);
+		} else if (contains(currentCell.innerHTML, 'Sugars')){
+			facts.sugars = extractNumber(currentCell.innerHTML);
+		} else if (contains(currentCell.innerHTML, 'Other Carbohydrate')){
+			facts.otherCarbohydrate = extractNumber(currentCell.innerHTML);
+		} else if (contains(currentCell.innerHTML, 'Protein')){
+			facts.protein = extractNumber(currentCell.innerHTML);
+		}			
+	}
+	
+	return facts;
+}
+
+function NutritionFacts(){
+	this.calories = null;
+	this.caloriesFat = null;
+	this.totalFat = null;
+	this.saturatedFat = null;
+	this.polyunsaturatedFat = null;
+	this.monounsaturatedFat = null;
+	this.transFat = null;
+	this.cholesterol = null;
+	this.sodium = null;
+	this.potassium = null;
+	this.totalCarbohydrate = null;
+	this.dietaryFiber = null;
+	this.sugars = null;
+	this.otherCarbohydrate = null;
+	this.protein = null;
+	
+	this.toString = function(){
+		return this.calories + " - " +
+		this.caloriesFat + " - " +
+		this.totalFat + " - " +
+		this.saturatedFat + " - " +
+		this.polyunsaturatedFat + " - " +
+		this.monounsaturatedFat + " - " +
+		this.transFat + " - " +
+		this.cholesterol + " - " +
+		this.sodium + " - " +
+		this.potassium + " - " +
+		this.totalCarbohydrate + " - " +
+		this.dietaryFiber + " - " +
+		this.sugars + " - " +
+		this.otherCarbohydrate + " - " +
+		this.protein;		
+	}
+
+	this.getPoints = function(){
+		numGramsFiber = this.dietaryFiber;
+		if (numGramsFiber > 4){
+			numGramsFiber = 4;
+		}
+		return Math.round((this.calories / 50) + (this.totalFat / 12) - (numGramsFiber / 5));		
+	}		
+}
+
+if (CurrentPage.isFoodDiary()) {
+	FoodDiaryPage.addPoints();
+} else if (CurrentPage.isNutritionFacts()) {
+	NutritionFactsPage.addPoints();
+}
