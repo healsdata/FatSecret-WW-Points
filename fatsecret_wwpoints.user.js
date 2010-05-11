@@ -1,13 +1,19 @@
 // ==UserScript==
 // @name          FatSecret WW Points
 // @namespace     http://www.healsdata.com/
-// @description   Adds the WW points to the FatSecret food diary.
+// @description   Adds a point calculation to FatSecret based on nutritional facts.
 // @copyright     2010 Jonathan Campbell (http://www.healsdata.com/)
 // @license       MIT License http://www.opensource.org/licenses/mit-license.php
-// @version       0.3
+// @version       0.4
 // @include       http://www.fatsecret.com/Diary.aspx?pa=fj*
 // @include       http://fatsecret.com/Diary.aspx?pa=fj*
+// @include       http://www.fatsecret.com/calories-nutrition/*
+// @include       http://fatsecret.com/calories-nutrition/*
 // ==/UserScript==
+
+//
+// Library Functions
+//
 
 /**
  * Removes everything but numbers from a string.
@@ -65,8 +71,9 @@ function getElementsByClassName(oElm, strTagName, strClassName){
 
 
 /**
- * Returns the number of WW points for a food item given some nutrition facts.
+ * Returns the number of points for a food item given some nutrition facts.
  * 
+ * @todo Replace all references to this function to use NutritionFacts.getPoints
  * @link http://www.ehow.com/how_2058466_calculate-weight-watchers-points.html
  * @param float numCalories
  * @param float numGramsFat
@@ -81,15 +88,20 @@ function calculatePoints(numCalories, numGramsFat, numGramsFiber){
 }
 
 /**
- * Returns whether a given something is contained within an array.
+ * Returns whether a given something is contained within another something.
  * 
- * @param array haystack
+ * @param mixed haystack
  * @param mixed needle
  * @return boolean
  */
 function contains(haystack, needle){
 	return (haystack.indexOf(needle) != -1);
 }
+
+//
+// Food Diary Functions 
+// @todo Refactor these into the FoodDiary class.
+//
 
 /**
  * Returns the row from the top of the journal that labels the nutrient columns.
@@ -228,7 +240,7 @@ function _addPointCellToSectionItem(sectionItem){
 }
 
 /**
- * Adds the WW points to a row that contains nutrient information.
+ * Adds the points to a row that contains nutrient information.
  * 
  * @param object nutrientRow
  * @return void
@@ -255,7 +267,7 @@ function _generatePointsForRow(nutrientRow){
 }
 
 /**
- * Adds the WW points to one of the four meal sections.
+ * Adds the points to one of the four meal sections.
  * 
  * @param object mealSection
  * @return void 
@@ -314,8 +326,6 @@ function _getNutrientsTracked(){
 /**
  * Returns whether the user is tracking all the required nutrients.
  * 
- * We can only calculate WW points if they are.
- * 
  * @return boolean
  */
 function userIsTrackingRequiredNutrients(){
@@ -365,7 +375,7 @@ function addPointCellToHeader(){
 	labelCell.className = 'grey';
 	labelCell.style.fontSize = '10px';
 	
-	labelCellText = document.createTextNode('WW');
+	labelCellText = document.createTextNode('Points');
 	labelCell.appendChild(labelCellText);
 	
 	var labelRow = _getLabelRow();
@@ -402,7 +412,7 @@ function showRequiredNutrientError(){
 	newCell.style.fontWeight = 'bold';
 	newCell.setAttribute('colspan', 99);
 	
-	var errMsg = "Notice! You must track the following nutrients to display WW points: ";
+	var errMsg = "Notice! You must track the following nutrients to display the point calculation: ";
 	var requiredNutrients = _getRequiredNutrients();
 	for (var i = 0; i < requiredNutrients.length; i++){
 		if (i != 0){
@@ -417,59 +427,12 @@ function showRequiredNutrientError(){
 	labelRow.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(newRow);	
 }
 
-var CurrentPage = new function(){
-	this.isFoodDiary = function(){
-		return (location.pathname == '/Diary.aspx' 
-			&& getQueryStringValue('pa') == 'fj');	
-	}
-	
-	this.isNutritionFacts = function(){
-		var factPanels = getElementsByClassName(document, 'td', 'factPanel');
-		return factPanels.length == 1;
-	}
-}
-
-var FoodDiaryPage = new function(){
-	this.addPoints = function(){
-		if (userIsTrackingRequiredNutrients()){
-			var totalPoints = generatePointData();
-			// Must come after all the calculations.
-			// We're using the label row as the only index for which column is which.
-			// @todo Clean this up so the order doesn't matter once work starts.		
-			var totalCellId = addPointCellToHeader();
-			showPointsInCell(totalPoints, totalCellId);
-		} else {
-			showRequiredNutrientError();
-		}
-	}	
-}
-
-var NutritionFactsPage = new function(){
-	this.addPoints = function(){
-		var numPoints = this._getNutritionFacts().getPoints();
-		var pluralString = 's';
-		if (numPoints == 1){
-			pluralString = '';
-		}
-		
-		this._getDisplayTargetElement().innerHTML += " and " + numPoints
-										   		  + " point" + pluralString;
-	}
-	
-	this._getNutritionFacts = function(){
-		return getNutritionFactsFromPanel();
-	}
-	
-	this._getDisplayTargetElement = function(){
-		theDetails = getElementsByClassName(document, 'td', 'details');
-		theTables = getElementsByClassName(theDetails[0], 'table', 'generic');
-		theCells = theTables[1].getElementsByTagName('td');
-		theBolds = theCells[0].getElementsByTagName('b');
-		return theBolds[0];
-	}
-	
-}
-
+/**
+ * Creates a nutrition facts panel from the "nutpanel" available on some pages. 
+ * 
+ * @todo This could be used to add points to the recipe page as well.
+ * @return object NutritionFacts
+ */
 function getNutritionFactsFromPanel(){
 	var panel = getElementsByClassName(document, 'div', 'nutpanel');
 	
@@ -524,6 +487,66 @@ function getNutritionFactsFromPanel(){
 	return facts;
 }
 
+//
+// Class Definitions
+//
+
+var CurrentPage = new function(){
+	this.isFoodDiary = function(){
+		return (location.pathname == '/Diary.aspx' 
+			&& getQueryStringValue('pa') == 'fj');	
+	}
+	
+	this.isNutritionFacts = function(){
+		var factPanels = getElementsByClassName(document, 'td', 'factPanel');
+		return factPanels.length == 1;
+	}
+}
+
+var FoodDiaryPage = new function(){
+	this.addPoints = function(){
+		if (userIsTrackingRequiredNutrients()){
+			var totalPoints = generatePointData();
+			// Must come after all the calculations.
+			// We're using the label row as the only index for which column is which.
+			// @todo Clean this up so the order doesn't matter once work starts.		
+			var totalCellId = addPointCellToHeader();
+			showPointsInCell(totalPoints, totalCellId);
+		} else {
+			showRequiredNutrientError();
+		}
+	}	
+}
+
+var NutritionFactsPage = new function(){
+	this.addPoints = function(){
+		var numPoints = this._getNutritionFacts().getPoints();
+		var pluralString = 's';
+		if (numPoints == 1){
+			pluralString = '';
+		}
+		
+		this._getDisplayTargetElement().innerHTML += " and " + numPoints
+										   		  + " point" + pluralString;
+	}
+	
+	this._getNutritionFacts = function(){
+		return getNutritionFactsFromPanel();
+	}
+	
+	this._getDisplayTargetElement = function(){
+		theDetails = getElementsByClassName(document, 'td', 'details');
+		theTables = getElementsByClassName(theDetails[0], 'table', 'generic');
+		theCells = theTables[1].getElementsByTagName('td');
+		theBolds = theCells[0].getElementsByTagName('b');
+		return theBolds[0];
+	}
+	
+}
+
+/**
+ * Object to hold all the nutrient values and calculate points.
+ */
 function NutritionFacts(){
 	this.calories = null;
 	this.caloriesFat = null;
@@ -540,25 +563,12 @@ function NutritionFacts(){
 	this.sugars = null;
 	this.otherCarbohydrate = null;
 	this.protein = null;
-	
-	this.toString = function(){
-		return this.calories + " - " +
-		this.caloriesFat + " - " +
-		this.totalFat + " - " +
-		this.saturatedFat + " - " +
-		this.polyunsaturatedFat + " - " +
-		this.monounsaturatedFat + " - " +
-		this.transFat + " - " +
-		this.cholesterol + " - " +
-		this.sodium + " - " +
-		this.potassium + " - " +
-		this.totalCarbohydrate + " - " +
-		this.dietaryFiber + " - " +
-		this.sugars + " - " +
-		this.otherCarbohydrate + " - " +
-		this.protein;		
-	}
 
+	/**
+	 * @todo Allow for .5 points but then still count 1, 2, 3, etc.
+	 * @link http://www.ehow.com/how_2058466_calculate-weight-watchers-points.html
+	 * @return integer
+	 */
 	this.getPoints = function(){
 		numGramsFiber = this.dietaryFiber;
 		if (numGramsFiber > 4){
@@ -567,6 +577,10 @@ function NutritionFacts(){
 		return Math.round((this.calories / 50) + (this.totalFat / 12) - (numGramsFiber / 5));		
 	}		
 }
+
+//
+// Main Runtime
+//
 
 if (CurrentPage.isFoodDiary()) {
 	FoodDiaryPage.addPoints();
