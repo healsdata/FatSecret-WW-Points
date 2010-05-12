@@ -69,6 +69,29 @@ function getElementsByClassName(oElm, strTagName, strClassName){
 	return (arrReturnElements)
 }
 
+/**
+ * Rounds a given number to the nearest half number.
+ * 
+ * @param float theFloat
+ * @return float
+ */
+function roundToNearestHalf(theFloat){
+	var theRoundedInt = Math.round(theFloat);
+	if (theRoundedInt == theFloat){
+		return theFloat;
+	} else if (theRoundedInt > theFloat){
+		var theDecimal = 1 - theRoundedInt + theFloat;
+	} else {
+		var theDecimal = theFloat - theRoundedInt;
+	}
+	
+	if (theDecimal < 0.33 || theDecimal > 0.66){
+		return theRoundedInt;
+	} else {
+		var theBaseInt = theFloat - theDecimal;
+		return theBaseInt + 0.5;
+	}	
+}
 
 /**
  * Returns the number of points for a food item given some nutrition facts.
@@ -81,10 +104,12 @@ function getElementsByClassName(oElm, strTagName, strClassName){
  * @return integer
  */
 function calculatePoints(numCalories, numGramsFat, numGramsFiber){
-	if (numGramsFiber > 4){
-		numGramsFiber = 4;
-	}
-	return Math.round((numCalories / 50) + (numGramsFat / 12) - (numGramsFiber / 5));
+	var facts = new NutritionFacts();
+	facts.calories = numCalories;
+	facts.totalFat = numGramsFat;
+	facts.dietaryFiber = numGramsFiber;
+	
+	return facts.getPoints();
 }
 
 /**
@@ -565,7 +590,6 @@ function NutritionFacts(){
 	this.protein = null;
 
 	/**
-	 * @todo Allow for .5 points but then still count 1, 2, 3, etc.
 	 * @link http://www.ehow.com/how_2058466_calculate-weight-watchers-points.html
 	 * @return integer
 	 */
@@ -574,7 +598,20 @@ function NutritionFacts(){
 		if (numGramsFiber > 4){
 			numGramsFiber = 4;
 		}
-		return Math.round((this.calories / 50) + (this.totalFat / 12) - (numGramsFiber / 5));		
+		
+		var thePoints = (this.calories / 50) + (this.totalFat / 12) - (numGramsFiber / 5);
+		
+		var tmpPoints = thePoints;
+		
+		if (thePoints < 1){
+			thePoints = roundToNearestHalf(thePoints);
+		} else {
+			thePoints = Math.round(thePoints);
+		}
+				
+		alert(tmpPoints + " -> " + thePoints);
+		
+		return thePoints;		
 	}		
 }
 
