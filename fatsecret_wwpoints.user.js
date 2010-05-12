@@ -4,7 +4,7 @@
 // @description   Adds a point calculation to FatSecret based on nutritional facts.
 // @copyright     2010 Jonathan Campbell (http://www.healsdata.com/)
 // @license       MIT License http://www.opensource.org/licenses/mit-license.php
-// @version       0.4
+// @version       0.5
 // @include       http://www.fatsecret.com/Diary.aspx?pa=fj*
 // @include       http://fatsecret.com/Diary.aspx?pa=fj*
 // @include       http://www.fatsecret.com/calories-nutrition/*
@@ -601,15 +601,11 @@ function NutritionFacts(){
 		
 		var thePoints = (this.calories / 50) + (this.totalFat / 12) - (numGramsFiber / 5);
 		
-		var tmpPoints = thePoints;
-		
 		if (thePoints < 1){
 			thePoints = roundToNearestHalf(thePoints);
 		} else {
 			thePoints = Math.round(thePoints);
 		}
-				
-		alert(tmpPoints + " -> " + thePoints);
 		
 		return thePoints;		
 	}		
