@@ -4,7 +4,7 @@
 // @description   Adds a point calculation to FatSecret based on nutritional facts.
 // @copyright     2010 Jonathan Campbell (http://www.healsdata.com/)
 // @license       MIT License http://www.opensource.org/licenses/mit-license.php
-// @version       0.5
+// @version       0.5.1
 // @include       http://www.fatsecret.com/Diary.aspx?pa=fj*
 // @include       http://fatsecret.com/Diary.aspx?pa=fj*
 // @include       http://www.fatsecret.com/calories-nutrition/*
