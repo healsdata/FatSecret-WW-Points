@@ -601,7 +601,9 @@ function NutritionFacts(){
 		
 		var thePoints = (this.calories / 50) + (this.totalFat / 12) - (numGramsFiber / 5);
 		
-		if (thePoints < 1){
+		if (thePoints <= 0){
+			return 0;
+		} else if (thePoints < 1){
 			thePoints = roundToNearestHalf(thePoints);
 		} else {
 			thePoints = Math.round(thePoints);
