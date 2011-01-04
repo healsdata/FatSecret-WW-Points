@@ -4,12 +4,14 @@
 // @description   Adds a point calculation to FatSecret based on nutritional facts.
 // @copyright     2010 Jonathan Campbell (http://www.healsdata.com/)
 // @license       MIT License http://www.opensource.org/licenses/mit-license.php
-// @version       0.5.1
+// @version       0.5.4
 // @include       http://www.fatsecret.com/Diary.aspx?pa=fj*
 // @include       http://fatsecret.com/Diary.aspx?pa=fj*
 // @include       http://www.fatsecret.com/calories-nutrition/*
 // @include       http://fatsecret.com/calories-nutrition/*
 // ==/UserScript==
+
+
 
 //
 // Library Functions
@@ -21,22 +23,61 @@
  * @param string theString
  * @return string
  */
+
 function extractNumber(theString){
 	return theString.replace(/[^0-9.]/g, '');	
 }
 
 /**
- * Returns the value of one variable in the query string
+ * Removes everything but numbers from a string.
  * 
- * @link http://ilovethecode.com/Javascript/Javascript-Tutorials-How_To-Easy/Get_Query_String_Using_Javascript.shtml
+ * @param string theString
+ * @return string
+ */
+function extractAlphaNumeric(theString){
+	return theString.replace(/[^a-zA-Z0-9]/g, '');	
+}
+
+/**
+ * Returns the value of one variable in the query string of the current URL.
+ * 
  * @param string variableName
  * @return string
  */
-function getQueryStringValue(variableName) {
+function getValueFromCurrentUrl(variableName) {
 	var queryString = window.location.search.substring(1);
-	var keyValueString = queryString.split("&");
+	return getValueFromQueryString(variableName, queryString);
+}
+
+/**
+ * Returns the value of one variable in the query string of a given url
+ * 
+ * @param string variableName
+ * @param string url
+ * @return string
+ */
+function getValueFromUrl(variableName, url) {
+	var indexOfQuestionMark = url.indexOf('?');
+	if (indexOfQuestionMark == -1) {
+		return '';
+	}
+	
+	var queryString = url.substring(indexOfQuestionMark);
+	return getValueFromQueryString(variableName, queryString);	
+}
+
+/**
+ * Returns the value of one variable in a given query string
+ * 
+ * @link http://ilovethecode.com/Javascript/Javascript-Tutorials-How_To-Easy/Get_Query_String_Using_Javascript.shtml
+ * @param string variableName
+ * @param string queryString
+ * @return string
+ */
+function getValueFromQueryString(variableName, queryString) {
+	var keyValueString = queryString.split('&');
 	for (var i = 0; i < keyValueString.length; i++) {
-		var keyValue = keyValueString[i].split("=");
+		var keyValue = keyValueString[i].split('=');
 		if (keyValue[0] == variableName) {
 			return keyValue[1];
 		}
@@ -55,14 +96,37 @@ function getQueryStringValue(variableName) {
  * @return array
  */
 function getElementsByClassName(oElm, strTagName, strClassName){
-	var arrElements = (strTagName == "*" && document.all)? document.all : oElm.getElementsByTagName(strTagName);
+	var arrElements = (strTagName == '*' && document.all)? document.all : oElm.getElementsByTagName(strTagName);
 	var arrReturnElements = new Array();
-	strClassName = strClassName.replace(/\-/g, "\\-");
-	var oRegExp = new RegExp("(^|\\s)" + strClassName + "(\\s|$)");
+	strClassName = strClassName.replace(/\-/g, '\\-');
+	var oRegExp = new RegExp('(^|\\s)' + strClassName + '(\\s|$)');
 	var oElement;
 	for(var i=0; i<arrElements.length; i++){
 	    oElement = arrElements[i];
 	    if(oRegExp.test(oElement.className)){
+	        arrReturnElements.push(oElement);
+	    }
+	}
+	return (arrReturnElements)
+}
+
+/**
+ * Find all the elements inside the given element with a given title.
+ * 
+ * @param object oElm
+ * @param string strTagName
+ * @param string strTitle
+ * @return array
+ */
+function getElementsByTitle(oElm, strTagName, strTitle){
+	var arrElements = (strTagName == '*' && document.all)? document.all : oElm.getElementsByTagName(strTagName);
+	var arrReturnElements = new Array();
+	strTitle = strTitle.replace(/\-/g, '\\-');
+	var oRegExp = new RegExp('(^|\\s)' + strTitle + '(\\s|$)');
+	var oElement;
+	for(var i=0; i<arrElements.length; i++){
+	    oElement = arrElements[i];
+	    if(oRegExp.test(oElement.title)){
 	        arrReturnElements.push(oElement);
 	    }
 	}
@@ -136,8 +200,8 @@ function contains(haystack, needle){
 function _getLabelRow(){
 	var breakoutDivs = getElementsByClassName(document, 'div', 'breakout');
 	var tables = getElementsByClassName(breakoutDivs[0], 'table', 'generic');
-	var targetTable = tables[0].getElementsByTagName("table").item(0);
-	var tableRows = targetTable.getElementsByTagName("tr");	
+	var targetTable = tables[0].getElementsByTagName('table').item(0);
+	var tableRows = targetTable.getElementsByTagName('tr');	
 	return tableRows[0];
 }
 
@@ -149,15 +213,15 @@ function _getLabelRow(){
 function _getTotalsRow(){
 	var breakoutDivs = getElementsByClassName(document, 'div', 'breakout');
 	var tables = getElementsByClassName(breakoutDivs[0], 'table', 'generic');
-	var targetTable = tables[0].getElementsByTagName("table").item(0);
-	var tableRows = targetTable.getElementsByTagName("tr");	
+	var targetTable = tables[0].getElementsByTagName('table').item(0);
+	var tableRows = targetTable.getElementsByTagName('tr');	
 	return tableRows[1];	
 }
 
 /**
  * A list of the titles of valid meal sections.
  * 
- * This currently eliminates "Day Summary:" which is structured like a section.
+ * This currently eliminates 'Day Summary:' which is structured like a section.
  * 
  * @return array
  */
@@ -234,35 +298,96 @@ function _isSectionHeader(sectionItem){
 }
 
 /**
+ * Returns the FatSecret generated ID for a section item.
+ * 
+ * @param object sectionItem
+ * @return string
+ */
+function _getUniqueIdFromSectionItem(sectionItem){
+	var randomId = Math.floor(Math.random()*10001) + '_' + Math.floor(Math.random()*10001);
+	
+	if (_isSectionHeader(sectionItem)) {
+		var sectionTitle = getElementsByClassName(sectionItem, 'td', 'greytitlex');
+		if (!sectionTitle.length) {
+			return randomId;
+		}
+		
+		var titleString = sectionTitle[0].innerHTML;
+	    titleString = extractAlphaNumeric(titleString);			
+		return titleString.toLowerCase();
+	} else {	
+		var editAnchors = getElementsByTitle(sectionItem, 'a', 'edit');
+		if (!editAnchors.length) {
+			return randomId;
+		}
+		
+		return getValueFromUrl('eid', editAnchors[0].href);
+	}
+}
+
+window.toggleIncludePointsForUniqueId = function toggleIncludePointsForUniqueId(uniqueId){
+	var newValue = !_shouldIncludePointsForUniqueId(uniqueId);
+	GM_setValue('ignorePoints_' + uniqueId, newValue);
+	CurrentPage.addPoints();
+}
+
+function _shouldIncludePointsForUniqueId(uniqueId){
+	var ignorePointsForUniqueId = GM_getValue('ignorePoints_' + uniqueId);
+	if (ignorePointsForUniqueId){
+		return false;
+	}
+	return true;	
+}
+
+/**
+ * Returns whether an item's points should be included in the total.
+ * 
+ * @param sectionItem
+ * @returns boolean
+ */
+function _shouldIncludePointsForSectionItem(sectionItem){
+	var uniqueId = _getUniqueIdFromSectionItem(sectionItem);
+	return _shouldIncludePointsForUniqueId(uniqueId);
+}
+
+/**
  * Adds a cell to a section item where we should display points.
  * 
  * @param object sectionItem
  * @return string uniqueId - The ID of the new cell
  */
 function _addPointCellToSectionItem(sectionItem){
-	var newCellClass = 'greyback';
-	if (_isSectionHeader(sectionItem)){
-		newCellClass = 'greyback2';
+	var uniqueId = _getUniqueIdFromSectionItem(sectionItem);
+	var cellId = 'hd_sectionitem_' + uniqueId;
+	
+	if (CurrentPage.needsHtml()) {
+		var newCellClass = 'greyback';
+		if (_isSectionHeader(sectionItem)){
+			newCellClass = 'greyback2';
+		}
+		
+		var targetCells = getElementsByClassName(sectionItem, 'td', newCellClass);	
+	
+		var beforeMe = targetCells[0];
+		
+		var newCell = document.createElement('td');
+		newCell.className = newCellClass;
+		if (!_isSectionHeader(sectionItem)){
+			// Feature to click and zero out a cell not implemented.
+			//newCell.setAttribute('onClick', 'alert("cheese!");');
+		}
+	
+		newCell.id = cellId;
+		
+		newCellText = document.createTextNode('-');
+		newCell.appendChild(newCellText);
+		
+		beforeMe.parentNode.insertBefore(newCell, beforeMe);
 	}
 	
-	var targetCells = getElementsByClassName(sectionItem, 'td', newCellClass);	
-
-	var beforeMe = targetCells[0];
-	
-	var newCell = document.createElement("td");
-	newCell.className = newCellClass;
-	
-	// @todo Make this specific to the item instead of just random
-	var uniqueId = "hd_sectionitem_" + Math.floor(Math.random()*10001) + "_" + Math.floor(Math.random()*10001);
-	newCell.id = uniqueId;
-
-	newCellText = document.createTextNode('-');
-	newCell.appendChild(newCellText);
-	
-	beforeMe.parentNode.insertBefore(newCell, beforeMe);
-	
-	return uniqueId;
+	return cellId;
 }
+
 
 /**
  * Adds the points to a row that contains nutrient information.
@@ -276,7 +401,7 @@ function _generatePointsForRow(nutrientRow){
 	var nutrientsTracked = _getNutrientsTracked();
 	for (var i = 0; i < targetCells.length; i++){
 		var nutrient = nutrientsTracked[i];
-		var totalText = targetCells[i].innerHTML;
+		var totalText = targetCells[i].innerHTML;	
 		
 		if (totalText == '-'){
 			totalText = '0';
@@ -287,8 +412,14 @@ function _generatePointsForRow(nutrientRow){
 
 	var numItemPoints = calculatePoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber']);
 	var cellId = _addPointCellToSectionItem(nutrientRow);
-	showPointsInCell(numItemPoints, cellId);
-	return numItemPoints;	
+	
+	if (_shouldIncludePointsForSectionItem(nutrientRow)) {
+		showPointsInCell(numItemPoints, cellId, false);
+		return numItemPoints;
+	} else {
+		showPointsInCell(numItemPoints, cellId, true);
+		return 0;	
+	}
 }
 
 /**
@@ -332,12 +463,12 @@ function _getRequiredNutrients(){
  */
 function _getNutrientsTracked(){
 	var nutrientsTracked = new Array()
-	var targetCells = _getLabelRow().getElementsByTagName("td");
+	var targetCells = _getLabelRow().getElementsByTagName('td');
 	for (var i = 0; i < targetCells.length; i++){
 		var labelText = targetCells[i].innerHTML;
 		
-		if (labelText.indexOf("<") >= 0){
-			var nutrient = labelText.substring(0, labelText.indexOf("<"));
+		if (labelText.indexOf('<') >= 0){
+			var nutrient = labelText.substring(0, labelText.indexOf('<'));
 		} else {
 			var nutrient = labelText;
 		}
@@ -381,13 +512,20 @@ function generatePointData(){
 }
 
 /**
- * Fills in the point total for the whole day
+ * Displays a formatted number of points in a TD cell.
  * 
- * @param integer 
+ * @param integer numPoints
+ * @param string cellId
+ * @param boolean strike
  * @return void
  */
-function showPointsInCell(numPoints, cellId){
-	document.getElementById(cellId).innerHTML = _getPointDisplay(numPoints);
+function showPointsInCell(numPoints, cellId, strike){
+	var theCell = document.getElementById(cellId);
+	theCell.innerHTML = _getPointDisplay(numPoints);
+	
+	if (strike) {
+		theCell.style.textDecoration = 'line-through';
+	}	
 }
 
 /**
@@ -396,30 +534,34 @@ function showPointsInCell(numPoints, cellId){
  * @return void
  */
 function addPointCellToHeader(){
-	var labelCell = document.createElement("td");
-	labelCell.className = 'grey';
-	labelCell.style.fontSize = '10px';
+	var totalCellId = 'hd_point_total';
 	
-	labelCellText = document.createTextNode('Points');
-	labelCell.appendChild(labelCellText);
-	
-	var labelRow = _getLabelRow();
-	labelRow.insertBefore(labelCell, labelRow.firstChild);
-	
-	var totalCell = document.createElement("td");
-	totalCell.className = 'grey';
-	totalCell.style.align = 'right';
-	totalCell.style.fontSize = '11px';
-	totalCell.style.fontWeight = 'bold';
-	totalCell.id = 'hd_point_total';
-	
-	totalCellText = document.createTextNode('-');
-	totalCell.appendChild(totalCellText);
-	
-	var totalRow = _getTotalsRow();
-	totalRow.insertBefore(totalCell, totalRow.firstChild);	
-	
-	return totalCell.id;
+	if (CurrentPage.needsHtml()) {
+		var labelCell = document.createElement('td');
+		labelCell.className = 'grey';
+		labelCell.style.fontSize = '10px';
+		
+		labelCellText = document.createTextNode('Points');
+		labelCell.appendChild(labelCellText);
+		
+		var labelRow = _getLabelRow();
+		labelRow.insertBefore(labelCell, labelRow.firstChild);
+		
+		var totalCell = document.createElement('td');
+		totalCell.className = 'grey';
+		totalCell.style.align = 'right';
+		totalCell.style.fontSize = '11px';
+		totalCell.style.fontWeight = 'bold';
+		totalCell.id = totalCellId;
+		
+		totalCellText = document.createTextNode('-');
+		totalCell.appendChild(totalCellText);
+		
+		var totalRow = _getTotalsRow();
+		totalRow.insertBefore(totalCell, totalRow.firstChild);			
+	}	
+		
+	return totalCellId;
 }
 
 /**
@@ -428,16 +570,20 @@ function addPointCellToHeader(){
  * @return void
  */
 function showRequiredNutrientError(){
+	if (!CurrentPage.needsHtml()) {
+		return;
+	}
+	
 	var labelRow = _getLabelRow();
 
-	var newRow = document.createElement("tr");
-	var newCell = document.createElement("td");
+	var newRow = document.createElement('tr');
+	var newCell = document.createElement('td');
 	newCell.style.color = '#E45B00';
 	newCell.style.fontSize = '11px';
 	newCell.style.fontWeight = 'bold';
 	newCell.setAttribute('colspan', 99);
 	
-	var errMsg = "Notice! You must track the following nutrients to display the point calculation: ";
+	var errMsg = 'Notice! You must track the following nutrients to display the point calculation: ';
 	var requiredNutrients = _getRequiredNutrients();
 	for (var i = 0; i < requiredNutrients.length; i++){
 		if (i != 0){
@@ -453,7 +599,7 @@ function showRequiredNutrientError(){
 }
 
 /**
- * Creates a nutrition facts panel from the "nutpanel" available on some pages. 
+ * Creates a nutrition facts panel from the 'nutpanel' available on some pages. 
  * 
  * @todo This could be used to add points to the recipe page as well.
  * @return object NutritionFacts
@@ -517,14 +663,31 @@ function getNutritionFactsFromPanel(){
 //
 
 var CurrentPage = new function(){
+	this.htmlAdded = false;
+	
+	/**
+	 * @todo Rework the HTML adding and point calculations into separate pieces.
+	 */
+	this.needsHtml = function(){
+		return !this.htmlAdded;
+	}
+	
 	this.isFoodDiary = function(){
 		return (location.pathname == '/Diary.aspx' 
-			&& getQueryStringValue('pa') == 'fj');	
+			&& getValueFromCurrentUrl('pa') == 'fj');	
 	}
 	
 	this.isNutritionFacts = function(){
 		var factPanels = getElementsByClassName(document, 'td', 'factPanel');
 		return factPanels.length == 1;
+	}
+	
+	this.addPoints = function(){
+		if (this.isFoodDiary()) {
+			FoodDiaryPage.addPoints();
+		} else if (this.isNutritionFacts()) {
+			NutritionFactsPage.addPoints();
+		}		
 	}
 }
 
@@ -540,6 +703,7 @@ var FoodDiaryPage = new function(){
 		} else {
 			showRequiredNutrientError();
 		}
+		CurrentPage.htmlAdded = true;
 	}	
 }
 
@@ -551,20 +715,28 @@ var NutritionFactsPage = new function(){
 			pluralString = '';
 		}
 		
-		this._getDisplayTargetElement().innerHTML += " and " + numPoints
-										   		  + " point" + pluralString;
+		this._getDisplayTargetElement().innerHTML = ' and ' + numPoints
+										   		  + ' point' + pluralString;
+		CurrentPage.htmlAdded = true;
 	}
 	
 	this._getNutritionFacts = function(){
 		return getNutritionFactsFromPanel();
 	}
 	
-	this._getDisplayTargetElement = function(){
+	this._getDisplayTargetElement = function(){		
 		theDetails = getElementsByClassName(document, 'td', 'details');
 		theTables = getElementsByClassName(theDetails[0], 'table', 'generic');
 		theCells = theTables[1].getElementsByTagName('td');
 		theBolds = theCells[0].getElementsByTagName('b');
-		return theBolds[0];
+		
+		if (CurrentPage.needsHtml()){
+			var pointSpan = document.createElement('span');				
+			theBolds[0].appendChild(pointSpan);
+		}
+		
+		theSpans = theBolds[0].getElementsByTagName('span');
+		return theSpans[0];
 	}
 	
 }
@@ -617,8 +789,11 @@ function NutritionFacts(){
 // Main Runtime
 //
 
-if (CurrentPage.isFoodDiary()) {
-	FoodDiaryPage.addPoints();
-} else if (CurrentPage.isNutritionFacts()) {
-	NutritionFactsPage.addPoints();
-}
+CurrentPage.addPoints();
+
+
+
+
+
+
+
