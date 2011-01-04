@@ -158,20 +158,20 @@ function roundToNearestHalf(theFloat){
 }
 
 /**
- * Returns the number of points for a food item given some nutrition facts.
- * 
+ * @deprecated
  * @todo Replace all references to this function to use NutritionFacts.getPoints
- * @link http://www.ehow.com/how_2058466_calculate-weight-watchers-points.html
  * @param float numCalories
  * @param float numGramsFat
  * @param float numGramsFiber
- * @return integer
+ * @param float numGramsProtein
+ * @return float
  */
-function calculatePoints(numCalories, numGramsFat, numGramsFiber){
+function calculatePoints(numCalories, numGramsFat, numGramsFiber, numGramsProtein){
 	var facts = new NutritionFacts();
 	facts.calories = numCalories;
 	facts.totalFat = numGramsFat;
 	facts.dietaryFiber = numGramsFiber;
+	facts.protein = numGramsProtein;
 	
 	return facts.getPoints();
 }
@@ -410,7 +410,7 @@ function _generatePointsForRow(nutrientRow){
 		totalsArr[nutrient] = totalText;
 	}		
 
-	var numItemPoints = calculatePoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber']);
+	var numItemPoints = calculatePoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber'], totalsArr['Prot']);
 	var cellId = _addPointCellToSectionItem(nutrientRow);
 	
 	if (_shouldIncludePointsForSectionItem(nutrientRow)) {
@@ -453,7 +453,7 @@ function _generatePointsForSection(mealSection){
  * @return array
  */
 function _getRequiredNutrients(){
-	return ['Fat', 'Fiber', 'KCals'];
+	return ['Fat', 'Fiber', 'KCals', 'Prot'];
 }
 
 /**
@@ -762,16 +762,11 @@ function NutritionFacts(){
 	this.protein = null;
 
 	/**
-	 * @link http://www.ehow.com/how_2058466_calculate-weight-watchers-points.html
-	 * @return integer
+	 * @return float
 	 */
 	this.getPoints = function(){
-		numGramsFiber = this.dietaryFiber;
-		if (numGramsFiber > 4){
-			numGramsFiber = 4;
-		}
-		
-		var thePoints = (this.calories / 50) + (this.totalFat / 12) - (numGramsFiber / 5);
+		var thePoints = this.oldPoints();
+		//var thePoints = this.newPoints();
 		
 		if (thePoints <= 0){
 			return 0;
@@ -783,6 +778,33 @@ function NutritionFacts(){
 		
 		return thePoints;		
 	}		
+	
+	/**
+	 * @link http://www.ehow.com/how_2058466_calculate-weight-watchers-points.html
+	 * @return float
+	 */	
+	this.oldPoints = function(){
+		var numGramsFiber = this.dietaryFiber;
+		if (numGramsFiber > 4){
+			numGramsFiber = 4;
+		}
+		
+		return (this.calories / 50) + (this.totalFat / 12) - (numGramsFiber / 5);		
+	}
+	
+	/**
+	 * @link http://www.diet-blog.com/10/weight_watchers_points_plus.php
+	 * @return float
+	 */
+	this.newPoints = function(){
+		var numNetCarbs = this.totalCarbohydrate - this.dietaryFiber;
+		if (numNetCarbs < 0) {
+			numNetCarbs = 0;
+		}
+		
+		return (this.protein / 10.94) + (numNetCarbs / 9.17) + (this.totalFat / 3.89) - (this.dietaryFiber / 12.49);
+	}
+	
 }
 
 //
