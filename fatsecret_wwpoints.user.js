@@ -4,7 +4,7 @@
 // @description   Adds a point calculation to FatSecret based on nutritional facts.
 // @copyright     2011 Jonathan Campbell (http://www.healsdata.com/)
 // @license       MIT License http://www.opensource.org/licenses/mit-license.php
-// @version       0.6.1
+// @version       0.6.2
 // @include       http://www.fatsecret.com/Diary.aspx?pa=fj*
 // @include       http://fatsecret.com/Diary.aspx?pa=fj*
 // @include       http://www.fatsecret.com/calories-nutrition/*
@@ -164,15 +164,17 @@ function roundToNearestHalf(theFloat){
  * @param float numGramsFat
  * @param float numGramsFiber
  * @param float numGramsProtein
+ * @param float numGramsCarbohydrate
  * @return float
  */
-function calculatePoints(numCalories, numGramsFat, numGramsFiber, numGramsProtein){
+function calculatePoints(numCalories, numGramsFat, numGramsFiber, numGramsProtein, numGramsCarbohydrate){
 	var facts = new NutritionFacts();
 	facts.calories = numCalories;
 	facts.totalFat = numGramsFat;
 	facts.dietaryFiber = numGramsFiber;
 	facts.protein = numGramsProtein;
-	
+	facts.totalCarbohydrate = numGramsCarbohydrate;
+
 	return facts.getPoints();
 }
 
@@ -410,7 +412,7 @@ function _generatePointsForRow(nutrientRow){
 		totalsArr[nutrient] = totalText;
 	}		
 
-	var numItemPoints = calculatePoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber'], totalsArr['Prot']);
+	var numItemPoints = calculatePoints(totalsArr['KCals'], totalsArr['Fat'], totalsArr['Fiber'], totalsArr['Prot'], totalsArr['Carbs']);
 	var cellId = _addPointCellToSectionItem(nutrientRow);
 	
 	if (_shouldIncludePointsForSectionItem(nutrientRow)) {
@@ -453,7 +455,7 @@ function _generatePointsForSection(mealSection){
  * @return array
  */
 function _getRequiredNutrients(){
-	return ['Fat', 'Fiber', 'KCals', 'Prot'];
+	return ['Fat', 'Fiber', 'KCals', 'Prot', 'Carbs'];
 }
 
 /**
@@ -796,13 +798,8 @@ function NutritionFacts(){
 	 * @link http://www.diet-blog.com/10/weight_watchers_points_plus.php
 	 * @return float
 	 */
-	this.newPoints = function(){
-		var numNetCarbs = this.totalCarbohydrate - this.dietaryFiber;
-		if (numNetCarbs < 0) {
-			numNetCarbs = 0;
-		}
-		
-		return (this.protein / 10.94) + (numNetCarbs / 9.17) + (this.totalFat / 3.89) - (this.dietaryFiber / 12.49);
+	this.newPoints = function(){		
+		return (this.protein / 10.94) + (this.totalCarbohydrate / 9.17) + (this.totalFat / 3.89) - (this.dietaryFiber / 12.49);
 	}
 	
 }
